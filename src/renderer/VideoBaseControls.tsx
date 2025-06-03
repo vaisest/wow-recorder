@@ -26,11 +26,12 @@ import {
   SelectValue,
 } from './components/Select/Select';
 import TextBanner from './components/TextBanner/TextBanner';
+import { Input } from './components/Input/Input';
 
 const ipc = window.electron.ipcRenderer;
 
 const outputResolutions = Object.keys(obsResolutions);
-const fpsOptions = [10, 20, 30, 60];
+const fpsPresetOptions = ['10', '20', '30', '60', 'Custom'];
 
 interface IProps {
   recorderStatus: RecStatus;
@@ -53,6 +54,10 @@ const VideoBaseControls: FC<IProps> = (props: IProps) => {
   const initialRender = useRef(true);
   const highRes = isHighRes(config.obsOutputResolution);
   const [encoders, setEncoders] = useState<Encoder[]>([]);
+  const [selectedFPSPreset, setSelectedFPSPreset] = useState<string>(
+    fpsPresetOptions.find((elem) => elem === config.obsFPS.toString()) ||
+      'Custom',
+  );
 
   useEffect(() => {
     const getAvailableEncoders = async () => {
@@ -157,23 +162,40 @@ const VideoBaseControls: FC<IProps> = (props: IProps) => {
     );
   };
 
-  const setFPS = (fps: string) => {
-    if (fps === null) {
+  const setObsFPS = (fps: string) => {
+    let fpsNum = Number.parseInt(fps, 10);
+    if (Number.isNaN(fpsNum)) {
       return;
     }
-
+    fpsNum = Math.min(
+      configSchema.obsFPS.maximum,
+      Math.max(configSchema.obsFPS.minimum, fpsNum),
+    );
+    console.log('setting', fpsNum);
     setConfig((prevState) => {
       return {
         ...prevState,
-        obsFPS: parseInt(fps, 10),
+        obsFPS: fpsNum,
       };
     });
+  };
+
+  const setFpsPreset = (preset: string) => {
+    if (preset === '') {
+      return;
+    }
+    setSelectedFPSPreset(preset);
+    if (preset !== 'Custom') {
+      setObsFPS(preset);
+    }
   };
 
   const getFPSToggle = () => {
     if (isComponentDisabled()) {
       return <></>;
     }
+
+    const isFPSCustom = selectedFPSPreset === 'Custom';
 
     return (
       <div>
@@ -189,22 +211,32 @@ const VideoBaseControls: FC<IProps> = (props: IProps) => {
             <Info size={20} className="inline-flex ml-2" />
           </Tooltip>
         </Label>
-        <ToggleGroup
-          value={config.obsFPS.toString()}
-          onValueChange={setFPS}
-          size="sm"
-          type="single"
-          variant="outline"
-        >
-          {fpsOptions.map((fpsOption) => (
-            <ToggleGroupItem
-              key={fpsOption.toString()}
-              value={fpsOption.toString()}
-            >
-              {fpsOption}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <div className="flex">
+          <ToggleGroup
+            value={selectedFPSPreset}
+            onValueChange={setFpsPreset}
+            size="sm"
+            type="single"
+            variant="outline"
+          >
+            {fpsPresetOptions.map((fpsOption) => (
+              <ToggleGroupItem key={fpsOption} value={fpsOption}>
+                {fpsOption}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {isFPSCustom ? (
+            <Input
+              name="customFps"
+              value={config.obsFPS}
+              onChange={(e) => setObsFPS(e.target.value)}
+              required
+              inputMode="numeric"
+              type="numeric"
+              size={3}
+            />
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -342,7 +374,7 @@ const VideoBaseControls: FC<IProps> = (props: IProps) => {
   return (
     <div className="flex flex-col items-center w-full">
       {getDisabledText()}
-      <div className="flex items-center w-full gap-x-8">
+      <div className="flex items-start w-full gap-x-8">
         {getFPSToggle()}
         {getCanvasResolutionSelect()}
         {getQualitySelect()}

@@ -187,8 +187,8 @@ export const configSchema = {
     description: Phrase.ObsFPSDescription,
     type: 'integer',
     default: 60,
-    minimum: 15,
-    maximum: 60,
+    minimum: 10,
+    maximum: 240,
   },
   obsForceMono: {
     description: Phrase.ObsForceMonoDescription,
